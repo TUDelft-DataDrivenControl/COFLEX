@@ -1,2 +1,2 @@
-# CoFlexOpt
-Framework to calculate optimized operating points for large, flexible wind turbines
+# COFLEX
+A novel set point optimiser and feedforward-feedback control scheme for large flexible wind turbines
