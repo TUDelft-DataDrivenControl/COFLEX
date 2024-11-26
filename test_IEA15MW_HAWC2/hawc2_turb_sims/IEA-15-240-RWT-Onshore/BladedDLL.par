@@ -1,0 +1,10 @@
+-1	         userVar1  % Time in seconds to activate pitch angle controller (-1 to activate from the start; pitch fixed to 0° if greater than simulation time) [s]
+10	         userVar2  % Proportional gain (Kp) of the WSE
+0	         userVar3  % Integral gain (Ki) of the WSE
+10000000	 userVar4  % Proportional gain (Kp) of the generator torque PI controller
+1000000	     userVar5  % Integral gain (Ki) of the generator torque PI controller
+-0.10	     userVar6  % Proportional gain (Kp) of the pitch angle PI controller
+-0.01	     userVar7  % Integral gain (Ki) of the pitch angle PI controller
+0.1	         userVar8  % Kvs in set point smoother
+0.1	         userVar9  % Kpc in set point smoother
+0	         userVar10 % Flag to select wind speed input (1 for low-pass filtered ideal wind speed, 0 for WSE)

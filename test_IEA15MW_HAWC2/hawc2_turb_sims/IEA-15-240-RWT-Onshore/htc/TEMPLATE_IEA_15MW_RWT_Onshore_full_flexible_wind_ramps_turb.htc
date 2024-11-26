@@ -1,0 +1,229 @@
+; IEA 15 MW Reference Wind Turbine monopile model.
+;
+; Note! This file links to external htc files that contain
+; values for the WTG system.
+;
+begin simulation ;
+  time_stop    1000.0 ;
+  solvertype   1 ;    (newmark)
+  on_no_convergence continue ;
+  convergence_limits 1E3 1.0 1E-7 ;
+  ;logfile  [logfile_new_name.log] ;
+  ;visualization ./visualization/IEA_15MW_RWT_Monopile.hdf5;  
+  ;animation ./animation/IEA_15MW_RWT_Monopile.dat;  
+  begin newmark;
+    deltat    0.01;
+  end newmark;
+end simulation;
+;
+;-------------------------------------------------------------------------------------------------------------------------------
+begin new_htc_structure;
+  ;body_output_file_name ./bodyeig/IEA_15MW_RWT_Onshore_body.dat;  body locations correct?
+  ;body_eigenanalysis_file_name ./bodyeig/IEA_15MW_RWT_Onshore_body_eigen.dat;  damping correct?
+  ;struct_inertia_output_file_name ./bodyeig/IEA_15MW_RWT_Onshore_struc_inertia.dat;  CM locations correct?
+  ;structure_eigenanalysis_file_name ./bodyeig/struceig/IEA_15MW_RWT_Onshore_struc_eigen.dat;  full-system frequencies?
+  ;system_eigenanalysis ./bodyeig/syseig/IEA_15MW_RWT_Onshore_sys_eigen.dat 1 8 99;  system eigenanalysis
+  ;
+  begin main_body;  tower
+    name        tower ;
+    type        timoschenko ;
+    nbodies     1 ;
+    node_distribution     c2_def ;
+    damping_posdef   0.0 0.0 0.0 0.004 0.004 0.0004  ;  taken from onshore tower
+    begin timoschenko_input;
+      filename ./data/IEA_15MW_RWT_Tower_st.dat;
+      set 1 1 ;
+    end timoschenko_input;
+    begin c2_def;              Definition of centerline (main_body coordinates)
+      nsec 10;
+      sec    1    0    0      0.00    0    ;  x,y,z,twist
+      sec    2    0    0    -15.0     0    ;
+      sec    3    0    0    -30.0     0    ;
+      sec    4    0    0    -45.0     0    ;
+      sec    5    0    0    -60.0     0    ;
+      sec    6    0    0    -75.0     0    ;
+      sec    7    0    0    -90.0     0    ;
+      sec    8    0    0    -105.0    0    ;
+      sec    9    0    0    -120.0    0    ;
+      sec    10   0    0    -129.386  0    ;
+    end c2_def ;
+  end main_body;
+  ;
+  continue_in_file ../IEA-15-240-RWT/IEA_15MW_RWT_WTG_bodies_FPM.htc;  FPM MODEL ACTIVATED FOR FULL FLEXIBILITY
+  ;
+  begin orientation;
+    ;
+    begin base;  tower to ground
+      body   tower;
+      inipos        0.0 0.0 -15.0 ;  15 m
+      body_eulerang 0.0 0.0   0.0 ;  same as global: zT down, yT downwind
+    end base;  
+    ;  
+    continue_in_file ../IEA-15-240-RWT/IEA_15MW_RWT_WTG_orientation.htc;
+    ;
+  end orientation;
+  ;
+  begin constraint;
+    ;
+    begin fix0;  tower fixed to ground
+      body tower;  
+    end fix0;  
+    ;  
+    continue_in_file ../IEA-15-240-RWT/IEA_15MW_RWT_WTG_constraint.htc;
+    ;
+  end constraint;
+  ;
+end new_htc_structure;
+;
+;----------------------------------------------------------------------------------------------------------------------------------------------------------------
+begin wind ;
+  density                 1.225 ;
+  wsp                     1 ;
+  tint                    1 ;
+  horizontal_input        1   ;  0=false, 1=true
+  windfield_rotations     0 0.0 0.0 ;    yaw, tilt, rotation
+  center_pos0             0.0 0.0 -150 ;  center of turb box
+  shear_format            3  0.20 ;  0=none,1=constant,2=log,3=power,4=linear
+  turb_format             1      ;  0=none, 1=mann,2=flex
+  tower_shadow_method     3      ;  0=none, 1=potential flow, 2=jet, 3=potential 2
+  wind_ramp_factor        0.0    300.0  1.0  1.0  ;  tstart, tstop, % start, % stop
+  wind_ramp_abs           300.01 1000.0 0.0  0.0  ;  t0, t1, + v0, + v1
+  begin mann;
+    create_turb_parameters 29.4 1.0 3.9 7 1.0 ;      L, alfaeps, gamma, seed, highfrq compensation
+    filename_u    [filename_u.bin] ;
+    filename_v    [filename_v.bin] ;
+    filename_w    [filename_w.bin] ;
+    box_dim_u    2      1.0;
+    box_dim_v    64     5.0;
+    box_dim_w    64     5.0;
+  end mann;
+  begin tower_shadow_potential_2;
+    tower_mbdy_link tower;
+    nsec  2;
+    radius    0.00000 5.00 ;  radius at base
+    radius    129.495 3.25 ;  radius at top
+  end tower_shadow_potential_2;
+end wind;
+;
+begin aerodrag ;  tower drag
+  begin aerodrag_element ;
+    mbdy_name tower;
+    aerodrag_sections uniform 10 ;
+    nsec  2 ;
+    sec   0.00000 0.6 10.0 ;  tower bottom
+    sec   129.495 0.6 6.50 ;  tower top
+  end aerodrag_element;
+;
+  begin aerodrag_element ;  nacelle drag
+    mbdy_name shaft;
+    aerodrag_sections uniform 2 ;
+    nsec 2 ;
+    sec   0.000 0.8 10.0 ;
+    sec   11.14 0.8 10.0 ;
+  end aerodrag_element;
+end aerodrag;
+;
+continue_in_file ../IEA-15-240-RWT/IEA_15MW_RWT_WTG_aero.htc;
+;
+;----------------------------------------------------------------------------------------------------------------------------------------------------------------
+begin dll;
+;
+  begin type2_dll; 1. discon controller interface
+    name h2bladed_interface ;
+    filename  ./control/h2bladed_interface_64.dll ;
+    dll_subroutine_init initialize_type2dll ;
+    dll_subroutine_update update_type2dll ;
+    arraysizes_init  100 1 ;
+    arraysizes_update  100 100 ;
+  ;
+    begin init ;  parameters needed to initialize DLL
+      constant 1   1      ; Gear ratio [-]
+      constant 2   3      ; Number of blades [-]
+      constant 3   0.9655 ; Generator Efficiency [-]
+      constant 4   0      ; Enable DLL log [0=disable, 1=enable]
+    end init ;
+  ;
+    begin output;  HAWC2 channels passed to the interface DLL
+      general status                            ;  Status [-]
+      general time                              ;  Time [s]
+      constraint bearing1 shaft_rot 1 only 2    ;  LSS [rad/s]
+      constraint bearing2 pitch1 1 only 1       ;  Blade1 pitch angle [rad]
+      constraint bearing2 pitch2 1 only 1       ;  Blade1 pitch angle [rad]
+      constraint bearing2 pitch3 1 only 1       ;  Blade1 pitch angle [rad]
+      mbdy momentvec shaft  1 1  shaft  only 3  ;  Generator torque   [Nm]
+      wind free_wind_hor 1 0.0 0.0 -150.0 only 1;  Hub-height wind speed [m/s]
+    end output;           
+  ;
+    begin actions;  actions applied to the turbine   
+      mbdy moment_int shaft 1 -3 shaft connector 2 ; Generator LSS torque    [Nm]
+      constraint bearing2 angle pitch1 ;             Angle pitch1 bearing    [rad]
+      constraint bearing2 angle pitch2 ;             Angle pitch2 bearing    [rad]
+      constraint bearing2 angle pitch3 ;             Angle pitch3 bearing    [rad]
+      general printvar                ;              Estimated wind speed    [m/s]
+      general printvar                ;              Mapped rotor speed    [rad/s]
+      general printvar                ;              Mapped torque    [Nm]
+      general printvar                ;              Mapped pitch  [rad]
+      general printvar                ;              Delta rotspd    [rad/s]
+    end actions; 
+  ;  
+  end type2_dll;
+;
+end dll;
+;----------------------------------------------------------------------------------------------------------------------------------------------------------------
+; 
+begin output;
+  filename [output_filename];
+  data_format  hawc_ascii;
+  buffer 9999 ;
+  time 0 1000;
+;
+  general time;
+  constraint bearing1 shaft_rot 2; angle and angle velocity
+  constraint bearing2 pitch1 5;    angle and angular velocity
+  constraint bearing2 pitch2 5;    angle and angular velocity
+  constraint bearing2 pitch3 5;    angle and angular velocity
+  aero omega ;
+  aero torque;
+  aero power;
+  aero thrust;
+  wind free_wind 1 0.0 0.0 -150; local wind at fixed position: coo (1=global,2=non-rotation rotor coo.), pos x, pos y, pos z
+  dll type2_dll h2bladed_interface inpvec 5 # Data out of the controller;
+  dll type2_dll h2bladed_interface inpvec 6 # Data out of the controller;
+  dll type2_dll h2bladed_interface inpvec 7 # Data out of the controller;
+  dll type2_dll h2bladed_interface inpvec 8 # Data out of the controller;
+  dll type2_dll h2bladed_interface inpvec 9 # Data out of the controller;
+  ; Moments:
+  mbdy momentvec tower  1 1  tower # tower base ;
+  mbdy momentvec tower  9 2  tower # tower yaw bearing ;
+  mbdy momentvec shaft  1 1  shaft # main bearing ;
+  mbdy momentvec blade1 1 1  blade1 # blade 1 root ;
+  mbdy momentvec blade2 1 1  blade2 # blade 2 root ;
+  mbdy momentvec blade3 1 1  blade3 # blade 3 root ;
+  ; Displacements and accellerations
+  mbdy state pos tower 9 1.0 global only 1 # Tower top FA displ;
+  mbdy state pos tower 9 1.0 global only 2 # Tower top SS displ;
+  mbdy state acc tower 9 1.0 global only 1 # Tower top FA acc;
+  mbdy state acc tower 9 1.0 global only 2 # Tower top SS acc;
+;
+  mbdy state pos blade1  33 1.0 blade1 # blade 1 tip pos ;
+  mbdy state pos blade2  33 1.0 blade2 # blade 2 tip pos ;
+  mbdy state pos blade3  33 1.0 blade3 # blade 3 tip pos ;
+  mbdy state pos blade1  33 1.0 global # gl blade 1 tip pos ;
+; - Monitor Aerodynamics - ;
+  aero windspeed 3 1 1 72.5;
+  aero alfa 1 72.5;
+  aero alfa 2 72.5;
+  aero alfa 3 72.5;
+  aero cl 1 72.5;
+  aero cl 2 72.5;
+  aero cl 3 72.5;
+  aero cd 1 72.5;
+  aero cd 2 72.5;
+  aero cd 3 72.5;
+  aero wsp_rotor_avg 1 1; # vx rotor averaged wind speed
+  aero wsp_rotor_avg 1 2; # vy rotor averaged wind speed
+  aero wsp_rotor_avg 1 3; # vz rotor averaged wind speed
+end output;
+;
+;
+exit;
